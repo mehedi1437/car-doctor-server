@@ -7,13 +7,19 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
 
+const corsOptions = {
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://car-doctor-22996.web.app",
+  ],
+  credentials: true,
+  optionSuccessStatus: 200,
+};
 // middleware
-app.use(cors({
-  origin:['http://localhost:5173'],
-  credentials:true
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
-app.use(cookieParser())
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5pbosvq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -26,27 +32,20 @@ const client = new MongoClient(uri, {
   },
 });
 
-// Own Middlewares
-const logger = (req,res,next)=>{
-  console.log('log info :', req.method , req.url);
-  next()
-}
-
-const verifyToken = (req,res,next)=>{
-   const token = req?.cookies?.token;
-  //  console.log("token in the middleware" , token);
-  if(!token){
-    return res.status(401).send({message:'unauthorized access'})
+// ! Verify JWT Middleware
+const verifyJwtToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized access" });
   }
-  jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
-    if(err){
-      return res.status(401).send({message:'unauthorized access'})
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden access" });
     }
-    req.user= decoded;
-    next()
-  })
-
-}
+    req.user = decoded;
+    next();
+  });
+};
 
 async function run() {
   try {
@@ -55,27 +54,33 @@ async function run() {
 
     const servicesCollection = client.db("carDoctor").collection("services");
     const bookingCollection = client.db("carDoctor").collection("bookings");
+    // ! JwT Implementation from here
 
-    // Auth related API
-    app.post('/jwt',  logger ,async(req,res)=>{
-      const user = req.body;
-      console.log('user for token',user);
-      const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{
-        expiresIn:'1h'
-      })
-      res.cookie('token',token , {
-        httpOnly:true,
-        secure:true,
-        sameSite:'none'
-      })
-      .send({success:true})
-    })
+    app.post("/jwt", async (req, res) => {
+      const email = req.body;
+      const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1d",
+      });
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "None" : "strict",
+        })
+        .send({ success: true });
+    });
 
-    app.post('/logout',async(req,res)=>{
-      const user = req.body ;
-      console.log('logging out ',user);
-      res.clearCookie('token',{maxAge:0}).send({succes:true})
-    })
+    // ! clear Token On Logout
+    app.get("/logout", (req, res) => {
+      res
+        .clearCookie("token", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "None" : "strict",
+          maxAge: 0,
+        })
+        .send({ success: true });
+    });
 
     // Services related api
     app.get("/services", async (req, res) => {
@@ -94,12 +99,12 @@ async function run() {
     });
 
     // Booking APIS
-    app.get("/bookings", logger,verifyToken, async (req, res) => {
+    app.get("/bookings", verifyJwtToken, async (req, res) => {
       // console.log('cook cook cookies',req.cookies);
       console.log(req.query.email);
-      console.log('token owner info' , req.user);
-      if(req.user.email !== req.query.email){
-        return res.status(403).send({message: ' forbidden access'})
+      console.log("token owner info", req.user);
+      if (req.user.email !== req.query.email) {
+        return res.status(403).send({ message: " forbidden access" });
       }
       let query = {};
       if (req.query?.email) {
@@ -144,7 +149,6 @@ async function run() {
     );
   } finally {
     // Ensures that the client will close when you finish/error
-    // await client.close();
   }
 }
 run().catch(console.dir);
