@@ -11,7 +11,7 @@ const corsOptions = {
   origin: [
     "http://localhost:5173",
     "http://localhost:5174",
-    "https://car-doctor-22996.web.app",
+    "https://cars-doctor-c40b8.web.app",
   ],
   credentials: true,
   optionSuccessStatus: 200,
@@ -99,7 +99,7 @@ async function run() {
     });
 
     // Booking APIS
-    app.get("/bookings", verifyJwtToken, async (req, res) => {
+    app.get("/bookings", async (req, res) => {
       // console.log('cook cook cookies',req.cookies);
       console.log(req.query.email);
       console.log("token owner info", req.user);
