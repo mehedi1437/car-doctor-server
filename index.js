@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const serverless = require('serverless-http');
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
@@ -160,3 +161,4 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`Car Doctor Server is running on the PORT ${port}`);
 });
+module.exports.handler = serverless(app);
