@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const serverless = require('serverless-http');
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
@@ -99,8 +100,7 @@ async function run() {
     });
 
     // Booking APIS
-    app.get("/bookings", async (req, res) => {
-      // console.log('cook cook cookies',req.cookies);
+    app.get("/bookings",verifyJwtToken, async (req, res) => {
       console.log(req.query.email);
       console.log("token owner info", req.user);
       if (req.user.email !== req.query.email) {
@@ -160,4 +160,7 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`Car Doctor Server is running on the PORT ${port}`);
 });
+// Export as serverless function
+module.exports = app;
+module.exports.handler = serverless(app);
 
